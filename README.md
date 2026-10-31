@@ -1,111 +1,125 @@
 # AIGen Hackathon Platform & Organizer Command Center
 
-Official 5-day online hackathon platform built for the **AI Generation Club** (Hawassa, Ethiopia).
+The official web platform and administrative control center for the **AI Generation Club** (Hawassa, Ethiopia) 5-day online hackathon.
 
 ---
 
-## Architecture Overview
+## System Architecture
 
-This repository is structured as a monorepo containing both the public participant platform and the private organizer command center:
+This repository is maintained as a monorepo housing both the participant-facing platform and the organizer evaluation center:
 
 ```
 aigen-hawassa-hackathon/
-├── app/                  # Public Participant Portal (Homepage, Submissions, Announcements, Schedule)
-├── components/           # Public UI Components (Navbar, Countdown, Cards)
-├── public/               # Public assets & AI Generation Club official logo
-├── admin/                # Organizer & Judge Command Center (Scoring, Schedules, Passkeys, Collaborators)
-│   ├── app/              # Admin console UI & Matrix evaluation engine
-│   └── lib/              # Admin Supabase client
-├── .env.example          # Template for required environment variables
+├── app/                  # Participant Portal (Registration, Submissions, Announcements, Agenda)
+├── components/           # Public Interface Components (Navigation, Countdown, Schedule, Cards)
+├── public/               # Static assets & Official Club Brand Identity
+├── admin/                # Organizer & Judge Command Center (Scoring matrices, broadcasts, passkeys)
+│   ├── app/              # Administrative Dashboard UI & Rubric Engine
+│   └── lib/              # Admin Supabase Database Client
+├── .env.example          # Environment variable template
 └── README.md
 ```
 
 ---
 
-## Features
+## Core Capabilities
 
-### 1. Public Participant Portal (`/`)
-- **Individual Competition**: Fast contestant registration and submission flow.
-- **5-Day Journey Meta-Prompt**: Structured prompt intake detailing daily AI-augmented workflows.
-- **Submission Editing & Deadline Lock**: Contestants can edit their project entries until the submission deadline expires. Once the deadline passes, submissions are locked.
-- **Dynamic Countdown & Live Schedule**: Live sync with Supabase `event_settings` table. Defaults to pending state until set by organizers.
-- **Dynamic Organizing Roster**: Real-time listing of core organizers and collaborators.
-- **Private Evaluation Flow**: Public leaderboard rankings remain concealed until the official award ceremony.
+### 1. Participant Platform (`/`)
+- **Individual Competition Model**: Optimized registration and submission pipeline designed for individual participants.
+- **5-Day Prompt Engineering Meta-Prompt**: Structured prompt intake capturing multi-day AI-assisted development workflows.
+- **Submission Lifecycle & Deadline Enforcer**: Participants may update their project repositories and demo links continuously until the countdown deadline expires. Once expired, entries lock permanently against edits.
+- **Dynamic Countdown & Live Schedule**: Synchronized directly with Supabase `event_settings`. Defaults to pending status until officially announced by event directors.
+- **Organizers & Collaborators Roster**: Public directory recognizing leadership, mentorship, and operational partners in exact committee order.
+- **Private Evaluation Flow**: Public leaderboard scores remain concealed to maintain competition integrity until the closing award ceremony.
 
 ### 2. Organizer & Judge Command Center (`/admin`)
 - **Role-Based Passkey Authentication**:
-  - **Judges**: Scoring-only access to review submissions and score on a 5-dimension rubric (Problem Solving, Technical Execution, AI Tool Adoption, Presentation, Innovation).
-  - **Organizers**: Full administrative control to manage live countdowns, create online schedules, post announcements, and manage collaborators.
-- **In-Dashboard Passkey Manager (Access Passkeys 🔑):
-  - Organizers can view, reveal, and change both the Organizer passkey and Judge passkey live directly from the admin dashboard.
-  - Changes are synced in real time via Supabase event_settings and take effect immediately across all devices with zero code redeployment needed.
-- **Real-Time Event Control**:
-  - Set custom deadlines or presets (`+24h`, `+48h`, `+5 Days (120h)`, `+7 Days`, `Reset/Clear`).
-  - Add and delete interactive agenda items for the online schedule.
-  - Dynamically manage displayed organizers and collaborators.
+  - **Judges**: Scoped exclusively to project evaluation across a 5-dimension rubric (Problem Solving, Technical Execution, AI Tool Adoption, Presentation, Innovation).
+  - **Organizers**: Complete operational control over countdown timers, live schedule publication, announcement broadcasts, and committee roster management.
+- **Live Passkey Security Management (`Access Passkeys 🔑`)**:
+  - Organizers can view, reveal, and update both Organizer and Judge access passkeys directly from the dashboard.
+  - Updates persist to Supabase `event_settings` in real time, propagating across all active sessions with zero code changes or redeployments required.
+- **Operational Timeline & Schedule Management**:
+  - Configurable submission deadlines with one-click presets (`+24h`, `+48h`, `+5 Days (120h)`, `+7 Days`, `Reset/Clear`).
+  - Interactive agenda publisher supporting timeline events with real-time site updates.
 
 ---
 
-## Getting Started Locally
+## Local Development
 
 ### Prerequisites
 - Node.js (v18.17+ or v20+)
-- npm / pnpm / yarn
+- npm, pnpm, or yarn
 
-### 1. Environment Configuration
-Copy `.env.example` to `.env.local` in both the root directory and the `admin/` directory:
+### 1. Environment Setup
+Create local configuration files using the provided template:
 
 ```bash
-# Root directory (Public Portal)
+# Participant Portal (Root)
 cp .env.example .env.local
 
-# Admin directory (Organizer Portal)
+# Organizer Portal (Admin)
 cp .env.example admin/.env.local
 ```
 
-Fill in your Supabase project credentials:
+Populate `.env.local` with your database credentials and optional initial access passkeys:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your-anon-key>
+NEXT_PUBLIC_ADMIN_PASSKEY=your_private_organizer_passkey
+NEXT_PUBLIC_JUDGE_PASSKEY=your_private_judge_passkey
 ```
 
-### 2. Run the Public Platform
+### 2. Launching Services
+Run the participant platform:
 ```bash
 npm install
 npm run dev
-# Running on http://localhost:3000
+# Accessible at http://localhost:3000
 ```
 
-### 3. Run the Admin Command Center
-In a separate terminal:
+In a separate terminal, launch the organizer command center:
 ```bash
 cd admin
 npm install
 npm run dev -- -p 3001
-# Running on http://localhost:3001
+# Accessible at http://localhost:3001
 ```
 
 ---
 
-## Deploying to Vercel (Free & Instant)
+## Production Deployment
 
-Deploy both websites in 2 minutes using Vercel from this single repository:
+### Option 1: Vercel (Recommended for Next.js)
 
-### Deploy App 1: Public Platform
-1. Go to [vercel.com](https://vercel.com) and click **Add New... > Project**.
-2. Select your repository `dagmawishigute3-oss/aigen-hawassa-hackathon`.
-3. Set **Framework Preset** to `Next.js`.
-4. Keep **Root Directory** as `./` (default).
-5. Under **Environment Variables**, add:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-6. Click **Deploy**.
+Vercel provides native SSR, automated branch previews, and serverless edge performance for both applications from this repository.
 
-### Deploy App 2: Organizer Command Center
-1. On Vercel, click **Add New... > Project**.
-2. Select the same repository `dagmawishigute3-oss/aigen-hawassa-hackathon`.
-3. Set **Root Directory** to `admin` (click **Edit** next to Root Directory and select `admin`).
-4. Under **Environment Variables**, add the same Supabase variables.
-5. Click **Deploy**.
+#### Deploy Participant Portal:
+1. Connect your GitHub account on [vercel.com](https://vercel.com) and import `dagmawishigute3-oss/aigen-hawassa-hackathon`.
+2. Configure **Root Directory** as `./`.
+3. Add the Supabase environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`).
+4. Select **Deploy**.
+
+#### Deploy Organizer Command Center:
+1. From the Vercel dashboard, click **Add New... > Project** and select `dagmawishigute3-oss/aigen-hawassa-hackathon`.
+2. Under **Root Directory**, click **Edit** and set to `admin`.
+3. Provide the same Supabase environment variables and optional initial passkeys.
+4. Select **Deploy**.
+
+---
+
+### Option 2: GitHub Pages (Static Hosting via GitHub Actions)
+
+For hosting entirely within GitHub's infrastructure using GitHub Pages:
+1. Configure Next.js static export mode in `next.config.ts` (`output: 'export'`).
+2. Navigate to repository **Settings > Pages** on GitHub.
+3. Under **Build and deployment > Source**, select **GitHub Actions**.
+4. Enable the official **Next.js** deployment workflow.
+
+---
+
+## License & Organization
+
+Maintained by the **AI Generation Club** — Hawassa, Ethiopia.
+All rights reserved © 2026.
