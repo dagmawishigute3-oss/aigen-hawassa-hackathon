@@ -34,7 +34,7 @@ interface Announcement {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'evaluations' | 'announcements'>('evaluations')
+  const [activeTab, setActiveTab] = useState<'evaluations' | 'announcements' | 'security'>('evaluations')
 
   // Submissions state
   const [submissions, setSubmissions] = useState<Submission[]>([])
@@ -69,6 +69,14 @@ export default function AdminPage() {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [passkeyInput, setPasskeyInput] = useState('')
   const [passkeyError, setPasskeyError] = useState(false)
+  const [dynamicAdminPass, setDynamicAdminPass] = useState('')
+  const [dynamicJudgePass, setDynamicJudgePass] = useState('')
+  const [newAdminPassInput, setNewAdminPassInput] = useState('')
+  const [newJudgePassInput, setNewJudgePassInput] = useState('')
+  const [showAdminPass, setShowAdminPass] = useState(false)
+  const [showJudgePass, setShowJudgePass] = useState(false)
+  const [passkeyMsg, setPasskeyMsg] = useState<string | null>(null)
+  const [savingPasskeys, setSavingPasskeys] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('aigen_judge_auth') === 'true') {
@@ -76,6 +84,7 @@ export default function AdminPage() {
     }
     fetchSubmissions()
     fetchAnnouncements()
+    fetchPasskeys()
   }, [])
 
   async function fetchSubmissions() {
@@ -105,9 +114,91 @@ export default function AdminPage() {
     setLoadingAnnouncements(false)
   }
 
-  const handleUnlock = (e: React.FormEvent) => {
+    async function fetchPasskeys() {
+    try {
+      const [adminRes, judgeRes] = await Promise.all([
+        supabase.from('event_settings').select('value').eq('key', 'admin_passkey').maybeSingle(),
+        supabase.from('event_settings').select('value').eq('key', 'judge_passkey').maybeSingle()
+      ])
+      if (adminRes.data?.value) {
+        setDynamicAdminPass(adminRes.data.value)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', adminRes.data.value)
+      }
+      if (judgeRes.data?.value) {
+        setDynamicJudgePass(judgeRes.data.value)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', judgeRes.data.value)
+      }
+    } catch (e) {
+      console.error('Error fetching passkeys:', e)
+    }
+  }
+
+  const handleUpdatePasskey = async (target: 'admin' | 'judge') => {
+    const newVal = target === 'admin' ? newAdminPassInput.trim() : newJudgePassInput.trim()
+    if (!newVal) {
+      setPasskeyMsg(`Please enter a new ${target === 'admin' ? 'Organizer' : 'Judge'} passkey first.`)
+      return
+    }
+    setSavingPasskeys(true)
+    setPasskeyMsg(null)
+
+    const key = target === 'admin' ? 'admin_passkey' : 'judge_passkey'
+    try {
+      const { error } = await supabase
+        .from('event_settings')
+        .upsert({
+          key,
+          value: newVal,
+          updated_at: new Date().toISOString()
+        })
+      
+      if (!error) {
+        if (target === 'admin') {
+          setDynamicAdminPass(newVal)
+          setNewAdminPassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', newVal)
+        } else {
+          setDynamicJudgePass(newVal)
+          setNewJudgePassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', newVal)
+        }
+        setPasskeyMsg(`✓ ${target === 'admin' ? 'Organizer' : 'Judge'} passkey updated & synced live in Supabase!`)
+      } else {
+        if (target === 'admin') {
+          setDynamicAdminPass(newVal)
+          setNewAdminPassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', newVal)
+        } else {
+          setDynamicJudgePass(newVal)
+          setNewJudgePassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', newVal)
+        }
+        setPasskeyMsg(`Saved locally in browser cache (${error.message}).`)
+      }
+    } catch (err: any) {
+      setPasskeyMsg(`Saved locally (${err.message}).`)
+    } finally {
+      setSavingPasskeys(false)
+    }
+  }
+
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (passkeyInput.trim().toLowerCase() === (process.env.NEXT_PUBLIC_ADMIN_PASSKEY || '').trim().toLowerCase()) {
+    const trimmed = passkeyInput.trim().toLowerCase()
+
+    let activeAdmin = dynamicAdminPass || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_admin_passkey') : '') || (process.env.NEXT_PUBLIC_ADMIN_PASSKEY || 'aigen2026')
+    try {
+      const aRes = await supabase.from('event_settings').select('value').eq('key', 'admin_passkey').maybeSingle()
+      if (aRes.data?.value) {
+        activeAdmin = aRes.data.value
+        setDynamicAdminPass(activeAdmin)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', activeAdmin)
+      }
+    } catch {}
+
+    const adminMatch = (activeAdmin && trimmed === activeAdmin.trim().toLowerCase()) || (process.env.NEXT_PUBLIC_ADMIN_PASSKEY && trimmed === process.env.NEXT_PUBLIC_ADMIN_PASSKEY.trim().toLowerCase())
+
+    if (adminMatch) {
       setIsUnlocked(true)
       sessionStorage.setItem('aigen_judge_auth', 'true')
       setPasskeyError(false)
@@ -115,6 +206,7 @@ export default function AdminPage() {
       setPasskeyError(true)
     }
   }
+
 
   const openScorecard = (sub: Submission) => {
     setActiveSub(sub)
@@ -401,6 +493,16 @@ export default function AdminPage() {
                 {announcements.length}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`py-3 px-6 font-bold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'security'
+                ? 'border-emerald-500 text-emerald-400 bg-zinc-950'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <span>🔑 ACCESS PASSKEYS</span>
           </button>
         </div>
 

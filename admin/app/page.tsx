@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '../lib/supabase'
 
 interface Submission {
   id: string
@@ -65,7 +65,7 @@ const SEED_ORGANIZERS: Omit<TeamMember, 'id'>[] = [
 ]
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'evaluations' | 'announcements' | 'team' | 'settings'>('evaluations')
+  const [activeTab, setActiveTab] = useState<'evaluations' | 'announcements' | 'team' | 'settings' | 'security'>('evaluations')
 
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,6 +126,16 @@ export default function AdminDashboardPage() {
   const [passkeyInput, setPasskeyInput] = useState('')
   const [passkeyError, setPasskeyError] = useState(false)
 
+  // Dynamic Passkey Security state
+  const [dynamicAdminPass, setDynamicAdminPass] = useState('')
+  const [dynamicJudgePass, setDynamicJudgePass] = useState('')
+  const [newAdminPassInput, setNewAdminPassInput] = useState('')
+  const [newJudgePassInput, setNewJudgePassInput] = useState('')
+  const [showAdminPass, setShowAdminPass] = useState(false)
+  const [showJudgePass, setShowJudgePass] = useState(false)
+  const [passkeyMsg, setPasskeyMsg] = useState<string | null>(null)
+  const [savingPasskeys, setSavingPasskeys] = useState(false)
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const auth = sessionStorage.getItem('aigen_judge_portal_auth')
@@ -142,9 +152,82 @@ export default function AdminDashboardPage() {
     fetchTeamMembers()
     fetchDeadline()
     fetchSchedule()
+    fetchPasskeys()
   }, [])
 
-  async function fetchSchedule() {
+    async function fetchPasskeys() {
+    try {
+      const [adminRes, judgeRes] = await Promise.all([
+        supabase.from('event_settings').select('value').eq('key', 'admin_passkey').maybeSingle(),
+        supabase.from('event_settings').select('value').eq('key', 'judge_passkey').maybeSingle()
+      ])
+      
+      const aVal = adminRes.data?.value || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_admin_passkey') : '') || ''
+      const jVal = judgeRes.data?.value || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_judge_passkey') : '') || ''
+
+      if (aVal) {
+        setDynamicAdminPass(aVal)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', aVal)
+      }
+      if (jVal) {
+        setDynamicJudgePass(jVal)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', jVal)
+      }
+    } catch (e) {
+      console.error('Error fetching passkeys:', e)
+    }
+  }
+
+  const handleUpdatePasskey = async (target: 'admin' | 'judge') => {
+    const newVal = target === 'admin' ? newAdminPassInput.trim() : newJudgePassInput.trim()
+    if (!newVal) {
+      setPasskeyMsg(`Please enter a new ${target === 'admin' ? 'Organizer' : 'Judge'} passkey first.`)
+      return
+    }
+    setSavingPasskeys(true)
+    setPasskeyMsg(null)
+
+    const key = target === 'admin' ? 'admin_passkey' : 'judge_passkey'
+    try {
+      const { error } = await supabase
+        .from('event_settings')
+        .upsert({
+          key,
+          value: newVal,
+          updated_at: new Date().toISOString()
+        })
+      
+      if (!error) {
+        if (target === 'admin') {
+          setDynamicAdminPass(newVal)
+          setNewAdminPassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', newVal)
+        } else {
+          setDynamicJudgePass(newVal)
+          setNewJudgePassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', newVal)
+        }
+        setPasskeyMsg(`✓ ${target === 'admin' ? 'Organizer' : 'Judge'} passkey updated & synced live in Supabase!`)
+      } else {
+        if (target === 'admin') {
+          setDynamicAdminPass(newVal)
+          setNewAdminPassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', newVal)
+        } else {
+          setDynamicJudgePass(newVal)
+          setNewJudgePassInput('')
+          if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', newVal)
+        }
+        setPasskeyMsg(`Saved locally in browser cache (${error.message}).`)
+      }
+    } catch (err: any) {
+      setPasskeyMsg(`Saved locally (${err.message}).`)
+    } finally {
+      setSavingPasskeys(false)
+    }
+  }
+
+async function fetchSchedule() {
     setLoadingSchedule(true)
     // 1. Try Supabase event_schedule or event_settings
     try {
@@ -452,17 +535,40 @@ export default function AdminDashboardPage() {
     setLoadingAnnouncements(false)
   }
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = passkeyInput.trim().toLowerCase()
 
-    if (trimmed === (process.env.NEXT_PUBLIC_ADMIN_PASSKEY || '').trim().toLowerCase()) {
+    let activeAdmin = dynamicAdminPass || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_admin_passkey') : '') || (process.env.NEXT_PUBLIC_ADMIN_PASSKEY || 'aigen2026')
+    let activeJudge = dynamicJudgePass || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_judge_passkey') : '') || (process.env.NEXT_PUBLIC_JUDGE_PASSKEY || 'judge2026')
+
+    try {
+      const [aRes, jRes] = await Promise.all([
+        supabase.from('event_settings').select('value').eq('key', 'admin_passkey').maybeSingle(),
+        supabase.from('event_settings').select('value').eq('key', 'judge_passkey').maybeSingle()
+      ])
+      if (aRes.data?.value) {
+        activeAdmin = aRes.data.value
+        setDynamicAdminPass(activeAdmin)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_admin_passkey', activeAdmin)
+      }
+      if (jRes.data?.value) {
+        activeJudge = jRes.data.value
+        setDynamicJudgePass(activeJudge)
+        if (typeof window !== 'undefined') localStorage.setItem('aigen_dynamic_judge_passkey', activeJudge)
+      }
+    } catch {}
+
+    const adminMatch = (activeAdmin && trimmed === activeAdmin.trim().toLowerCase()) || (process.env.NEXT_PUBLIC_ADMIN_PASSKEY && trimmed === process.env.NEXT_PUBLIC_ADMIN_PASSKEY.trim().toLowerCase())
+    const judgeMatch = (activeJudge && trimmed === activeJudge.trim().toLowerCase()) || (process.env.NEXT_PUBLIC_JUDGE_PASSKEY && trimmed === process.env.NEXT_PUBLIC_JUDGE_PASSKEY.trim().toLowerCase())
+
+    if (adminMatch) {
       setIsUnlocked(true)
       setUserRole('admin')
       sessionStorage.setItem('aigen_judge_portal_auth', 'true')
       sessionStorage.setItem('aigen_portal_role', 'admin')
       setPasskeyError(false)
-    } else if (trimmed === (process.env.NEXT_PUBLIC_JUDGE_PASSKEY || '').trim().toLowerCase()) {
+    } else if (judgeMatch) {
       setIsUnlocked(true)
       setUserRole('judge')
       setActiveTab('evaluations')
@@ -1587,6 +1693,151 @@ export default function AdminDashboardPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: ACCESS & PASSKEY SECURITY */}
+        {activeTab === 'security' && (
+          <div className="space-y-6 text-xs">
+            <div className="border border-zinc-850 bg-zinc-950 p-6 rounded-xl space-y-6">
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold">
+                  Access Control Management
+                </span>
+                <h2 className="text-xl font-bold text-white mt-1">Organizer &amp; Judge Passkeys</h2>
+                <p className="text-zinc-400 text-xs mt-1 max-w-2xl">
+                  Update the private passkeys used to sign in to this command center. Changes are stored in Supabase <code className="text-zinc-300">event_settings</code> and apply immediately across all devices without needing to redeploy code.
+                </p>
+              </div>
+
+              {passkeyMsg && (
+                <div className={`p-3 rounded-lg text-xs border ${
+                  passkeyMsg.includes('✓') || passkeyMsg.includes('success')
+                    ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                }`}>
+                  {passkeyMsg}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                {/* 1. Organizer Passkey Card */}
+                <div className="border border-zinc-800/80 bg-zinc-900/40 p-5 rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <h3 className="font-semibold text-white text-sm">Lead Organizer Passkey</h3>
+                    </div>
+                    <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded font-mono">
+                      Full Admin Access
+                    </span>
+                  </div>
+
+                  <p className="text-zinc-400 text-[11px]">
+                    Provides full administrative control: manage countdowns, live online schedule, broadcast announcements, collaborators, and passkeys.
+                  </p>
+
+                  <div className="bg-zinc-950/80 border border-zinc-850 p-3 rounded-lg flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block">CURRENT ACTIVE PASSKEY</span>
+                      <span className="font-mono text-xs text-zinc-200 font-medium">
+                        {showAdminPass 
+                          ? (dynamicAdminPass || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_admin_passkey') : '') || 'aigen2026') 
+                          : '••••••••••••'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPass(!showAdminPass)}
+                      className="text-[11px] text-zinc-400 hover:text-white px-2 py-1 bg-zinc-900 border border-zinc-800 rounded transition-colors"
+                    >
+                      {showAdminPass ? 'Hide' : 'Reveal'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-zinc-300 font-medium text-[11px]">
+                      Change Organizer Passkey
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newAdminPassInput}
+                        onChange={(e) => setNewAdminPassInput(e.target.value)}
+                        placeholder="Enter new organizer passkey..."
+                        className="flex-1 bg-zinc-950 border border-zinc-800 px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-500 rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingPasskeys || !newAdminPassInput.trim()}
+                        onClick={() => handleUpdatePasskey('admin')}
+                        className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black font-semibold px-4 py-2 rounded-lg transition-colors text-xs whitespace-nowrap"
+                      >
+                        {savingPasskeys ? 'Saving...' : 'Update'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Judge Passkey Card */}
+                <div className="border border-zinc-800/80 bg-zinc-900/40 p-5 rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                      <h3 className="font-semibold text-white text-sm">Judge Evaluation Passkey</h3>
+                    </div>
+                    <span className="text-[10px] bg-amber-950/80 text-amber-400 border border-amber-800/60 px-2 py-0.5 rounded font-mono">
+                      Scoring Only
+                    </span>
+                  </div>
+
+                  <p className="text-zinc-400 text-[11px]">
+                    Grants judges access only to review participant projects and submit scores across the 5 rubric dimensions. Cannot modify schedules or settings.
+                  </p>
+
+                  <div className="bg-zinc-950/80 border border-zinc-850 p-3 rounded-lg flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block">CURRENT ACTIVE PASSKEY</span>
+                      <span className="font-mono text-xs text-zinc-200 font-medium">
+                        {showJudgePass 
+                          ? (dynamicJudgePass || (typeof window !== 'undefined' ? localStorage.getItem('aigen_dynamic_judge_passkey') : '') || 'judge2026') 
+                          : '••••••••••••'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowJudgePass(!showJudgePass)}
+                      className="text-[11px] text-zinc-400 hover:text-white px-2 py-1 bg-zinc-900 border border-zinc-800 rounded transition-colors"
+                    >
+                      {showJudgePass ? 'Hide' : 'Reveal'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-zinc-300 font-medium text-[11px]">
+                      Change Judge Passkey
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newJudgePassInput}
+                        onChange={(e) => setNewJudgePassInput(e.target.value)}
+                        placeholder="Enter new judge passkey..."
+                        className="flex-1 bg-zinc-950 border border-zinc-800 px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500 rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingPasskeys || !newJudgePassInput.trim()}
+                        onClick={() => handleUpdatePasskey('judge')}
+                        className="bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-semibold px-4 py-2 rounded-lg transition-colors text-xs whitespace-nowrap"
+                      >
+                        {savingPasskeys ? 'Saving...' : 'Update'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

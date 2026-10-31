@@ -34,8 +34,11 @@ aigen-hawassa-hackathon/
 
 ### 2. Organizer & Judge Command Center (`/admin`)
 - **Role-Based Passkey Authentication**:
-  - **Judges**: Scoring-only access to review submissions and score on a 5-dimension rubric (Problem Solving, Technical Execution, AI Tool Adoption, Presentation, Innovation). Configured securely via environment variables.
-  - **Organizers**: Full organizer access to manage live countdowns, create online schedules, post announcements, and add/remove collaborators. Configured securely via environment variables.
+  - **Judges**: Scoring-only access to review submissions and score on a 5-dimension rubric (Problem Solving, Technical Execution, AI Tool Adoption, Presentation, Innovation).
+  - **Organizers**: Full administrative control to manage live countdowns, create online schedules, post announcements, and manage collaborators.
+- **In-Dashboard Passkey Manager (Access Passkeys 🔑):
+  - Organizers can view, reveal, and change both the Organizer passkey and Judge passkey live directly from the admin dashboard.
+  - Changes are synced in real time via Supabase event_settings and take effect immediately across all devices with zero code redeployment needed.
 - **Real-Time Event Control**:
   - Set custom deadlines or presets (`+24h`, `+48h`, `+5 Days (120h)`, `+7 Days`, `Reset/Clear`).
   - Add and delete interactive agenda items for the online schedule.
