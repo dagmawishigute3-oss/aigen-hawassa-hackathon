@@ -100,7 +100,20 @@ export default function Home() {
           .order('created_at', { ascending: true })
 
         if (!error && data && data.length > 0) {
-          setTeamMembers(data)
+          const COMMITTEE_ORDER: Record<string, number> = {
+            'dagmawi shigute': 1,
+            'dereje gimbo': 2,
+            'melaku tamagn': 3,
+            'medan habtamu': 4,
+            'befkir muluneh': 5,
+          }
+          const sorted = [...data].sort((a, b) => {
+            const pA = COMMITTEE_ORDER[a.name.trim().toLowerCase()] ?? 999
+            const pB = COMMITTEE_ORDER[b.name.trim().toLowerCase()] ?? 999
+            if (pA !== pB) return pA - pB
+            return (a.created_at || '').localeCompare(b.created_at || '')
+          })
+          setTeamMembers(sorted)
         }
       } catch (e) {
         // Fallback to DEFAULT_ORGANIZERS if table not created yet
