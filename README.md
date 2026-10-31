@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AIGen Hackathon Platform & Organizer Command Center
 
-## Getting Started
+Official 5-day online hackathon platform built for the **AI Generation Club** (Hawassa, Ethiopia).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Architecture Overview
+
+This repository is structured as a monorepo containing both the public participant platform and the private organizer command center:
+
+```
+aigen-hawassa-hackathon/
+├── app/                  # Public Participant Portal (Homepage, Submissions, Announcements, Schedule)
+├── components/           # Public UI Components (Navbar, Countdown, Cards)
+├── public/               # Public assets & AI Generation Club official logo
+├── admin/                # Organizer & Judge Command Center (Scoring, Schedules, Passkeys, Collaborators)
+│   ├── app/              # Admin console UI & Matrix evaluation engine
+│   └── lib/              # Admin Supabase client
+├── .env.example          # Template for required environment variables
+└── README.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. Public Participant Portal (`/`)
+- **Individual Competition**: Fast contestant registration and submission flow.
+- **5-Day Journey Meta-Prompt**: Structured prompt intake detailing daily AI-augmented workflows.
+- **Submission Editing & Deadline Lock**: Contestants can edit their project entries until the submission deadline expires. Once the deadline passes, submissions are locked.
+- **Dynamic Countdown & Live Schedule**: Live sync with Supabase `event_settings` table. Defaults to pending state until set by organizers.
+- **Dynamic Organizing Roster**: Real-time listing of core organizers and collaborators.
+- **Private Evaluation Flow**: Public leaderboard rankings remain concealed until the official award ceremony.
 
-## Learn More
+### 2. Organizer & Judge Command Center (`/admin`)
+- **Role-Based Passkey Authentication**:
+  - **Judges**: Scoring-only access to review submissions and score on a 5-dimension rubric (Problem Solving, Technical Execution, AI Tool Adoption, Presentation, Innovation). Configured securely via environment variables.
+  - **Organizers**: Full organizer access to manage live countdowns, create online schedules, post announcements, and add/remove collaborators. Configured securely via environment variables.
+- **Real-Time Event Control**:
+  - Set custom deadlines or presets (`+24h`, `+48h`, `+5 Days (120h)`, `+7 Days`, `Reset/Clear`).
+  - Add and delete interactive agenda items for the online schedule.
+  - Dynamically manage displayed organizers and collaborators.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Getting Started Locally
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prerequisites
+- Node.js (v18.17+ or v20+)
+- npm / pnpm / yarn
 
-## Deploy on Vercel
+### 1. Environment Configuration
+Copy `.env.example` to `.env.local` in both the root directory and the `admin/` directory:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Root directory (Public Portal)
+cp .env.example .env.local
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Admin directory (Organizer Portal)
+cp .env.example admin/.env.local
+```
+
+Fill in your Supabase project credentials:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your-anon-key>
+```
+
+### 2. Run the Public Platform
+```bash
+npm install
+npm run dev
+# Running on http://localhost:3000
+```
+
+### 3. Run the Admin Command Center
+In a separate terminal:
+```bash
+cd admin
+npm install
+npm run dev -- -p 3001
+# Running on http://localhost:3001
+```
+
+---
+
+## Deploying to Vercel (Free & Instant)
+
+Deploy both websites in 2 minutes using Vercel from this single repository:
+
+### Deploy App 1: Public Platform
+1. Go to [vercel.com](https://vercel.com) and click **Add New... > Project**.
+2. Select your repository `dagmawishigute3-oss/aigen-hawassa-hackathon`.
+3. Set **Framework Preset** to `Next.js`.
+4. Keep **Root Directory** as `./` (default).
+5. Under **Environment Variables**, add:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+6. Click **Deploy**.
+
+### Deploy App 2: Organizer Command Center
+1. On Vercel, click **Add New... > Project**.
+2. Select the same repository `dagmawishigute3-oss/aigen-hawassa-hackathon`.
+3. Set **Root Directory** to `admin` (click **Edit** next to Root Directory and select `admin`).
+4. Under **Environment Variables**, add the same Supabase variables.
+5. Click **Deploy**.
