@@ -917,6 +917,16 @@ async function fetchSchedule() {
               >
                 Countdown &amp; Timeline
               </button>
+              <button
+                onClick={() => setActiveTab('security')}
+                className={`py-2.5 px-4 font-medium border-b-2 transition-colors ${
+                  activeTab === 'security'
+                    ? 'border-emerald-400 text-white'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Access Passkeys 🔑
+              </button>
             </>
           )}
         </div>
